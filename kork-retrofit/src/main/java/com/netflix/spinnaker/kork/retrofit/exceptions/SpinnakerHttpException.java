@@ -21,7 +21,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.Getter;
 import org.springframework.http.HttpHeaders;
 import retrofit.RetrofitError;
@@ -40,34 +41,27 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   private final retrofit2.Response retrofit2Response;
 
-  /**
-   * A message derived from a RetrofitError's response body, or null if a custom message has been
-   * provided.
-   */
-  private final String rawMessage;
+  private Map<String, Object> body;
 
   public SpinnakerHttpException(RetrofitError e) {
     super(e);
     this.response = e.getResponse();
     this.retrofit2Response = null;
-    RetrofitErrorResponseBody body =
-        (RetrofitErrorResponseBody) e.getBodyAs(RetrofitErrorResponseBody.class);
-    this.rawMessage =
-        Optional.ofNullable(body).map(RetrofitErrorResponseBody::getMessage).orElse(e.getMessage());
+    body = (Map<String, Object>) e.getBodyAs(HashMap.class);
+    if (body != null) {
+      body.put("message", getErrorMessage());
+    }
   }
 
   public SpinnakerHttpException(RetrofitException e) {
     super(e);
     this.response = null;
     this.retrofit2Response = e.getResponse();
-    RetrofitErrorResponseBody body =
-        (RetrofitErrorResponseBody) e.getErrorBodyAs(RetrofitErrorResponseBody.class);
-    this.rawMessage =
-        Optional.ofNullable(body).map(RetrofitErrorResponseBody::getMessage).orElse(e.getMessage());
-  }
 
-  private final String getRawMessage() {
-    return rawMessage;
+    body = (Map<String, Object>) e.getErrorBodyAs(HashMap.class);
+    if (body != null) {
+      body.put("message", getErrorMessage());
+    }
   }
 
   /**
@@ -94,7 +88,11 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
     this.response = cause.response;
     this.retrofit2Response = cause.retrofit2Response;
-    rawMessage = null;
+    this.body = cause.body;
+    if (cause.body == null) {
+      body = new HashMap<>();
+    }
+    body.put("message", message);
   }
 
   public int getResponseCode() {
@@ -125,24 +123,30 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   @Override
   public String getMessage() {
-    // If there's no message derived from a response, get the specified message.
-    // It feels a little backwards to do it this way, but super.getMessage()
-    // always returns something whether there's a specified message or not, so
-    // look at getRawMessage instead.
-    if (getRawMessage() == null) {
-      return super.getMessage();
-    }
+    return (String) body.get("message");
+  }
 
-    if (retrofit2Response != null) {
-      return String.format(
-          "Status: %s, URL: %s, Message: %s",
-          retrofit2Response.code(),
-          retrofit2Response.raw().request().url().toString(),
-          getRawMessage());
+  private String getErrorMessage() {
+    String defaultMessage = getResponseCode() + " " + getReason();
+    String rawMessage =
+        body != null ? (String) body.getOrDefault("message", defaultMessage) : defaultMessage;
+    return String.format(
+        "Status: %s, URL: %s, Message: %s", getResponseCode(), getUrl(), rawMessage);
+  }
+
+  private String getUrl() {
+    if (response != null) {
+      return response.getUrl();
     } else {
-      return String.format(
-          "Status: %s, URL: %s, Message: %s",
-          response.getStatus(), response.getUrl(), getRawMessage());
+      return retrofit2Response.raw().request().url().toString();
+    }
+  }
+
+  private String getReason() {
+    if (response != null) {
+      return response.getReason();
+    } else {
+      return retrofit2Response.message();
     }
   }
 
