@@ -235,45 +235,19 @@ public class ErrorHandlingExecutorCallAdapterFactory extends CallAdapter.Factory
     @Override
     public void onResponse(final Call<T> call, final Response<T> response) {
       if (response.isSuccessful()) {
-        callbackExecutor.execute(
-            new Runnable() {
-              @Override
-              public void run() {
-                callback.onResponse(executorCallbackCall, response);
-              }
-            });
+        callbackExecutor.execute(() -> callback.onResponse(executorCallbackCall, response));
       } else {
         callbackExecutor.execute(
-            new Runnable() {
-              @Override
-              public void run() {
+            () ->
                 callback.onFailure(
                     executorCallbackCall,
-                    executorCallbackCall.createSpinnakerHttpException(response));
-              }
-            });
+                    executorCallbackCall.createSpinnakerHttpException(response)));
       }
     }
 
     @Override
     public void onFailure(Call<T> call, final Throwable t) {
-
-      SpinnakerServerException exception;
-      if (t instanceof IOException) {
-        exception = new SpinnakerNetworkException(t);
-      } else if (t instanceof SpinnakerHttpException) {
-        exception = (SpinnakerHttpException) t;
-      } else {
-        exception = new SpinnakerServerException(t);
-      }
-      final SpinnakerServerException finalException = exception;
-      callbackExecutor.execute(
-          new Runnable() {
-            @Override
-            public void run() {
-              callback.onFailure(executorCallbackCall, finalException);
-            }
-          });
+      callbackExecutor.execute(() -> callback.onFailure(executorCallbackCall, t));
     }
   }
 }
