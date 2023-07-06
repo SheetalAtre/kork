@@ -19,6 +19,7 @@ package com.netflix.spinnaker.kork.retrofit.exceptions;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.Objects;
+import okhttp3.MediaType;
 import okhttp3.ResponseBody;
 import retrofit2.Converter;
 import retrofit2.Response;
@@ -67,7 +68,7 @@ public class RetrofitException extends RuntimeException {
    * @throws RuntimeException wrapping the underlying IOException if unable to convert the body to
    *     the specified {@code type}.
    */
-  public <T> T getErrorBodyAs(Class<T> type) {
+  public <T> T getBodyAs(Class<T> type) {
     if (response == null) {
       return null;
     }
@@ -76,7 +77,20 @@ public class RetrofitException extends RuntimeException {
     try {
       return converter.convert(response.errorBody());
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      String jsonErrorMessage =
+          "{\"message\":\"" + response.code() + " " + "Failed to parse response\"}";
+      ResponseBody responseBody = getResponseBody(jsonErrorMessage);
+      try {
+        return converter.convert(responseBody);
+      } catch (IOException ex) {
+        // control is never expected to come to this block.
+        throw new RuntimeException(ex);
+      }
     }
+  }
+
+  private ResponseBody getResponseBody(String jsonErrorMessage) {
+    return ResponseBody.create(
+        MediaType.parse("application/json" + "; charset=utf-8"), jsonErrorMessage);
   }
 }

@@ -16,13 +16,10 @@
 
 package com.netflix.spinnaker.kork.retrofit.exceptions;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
-import java.util.Optional;
-import lombok.Getter;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
@@ -50,20 +47,18 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     super(e);
     this.response = e.getResponse();
     this.retrofit2Response = null;
-    RetrofitErrorResponseBody body =
-        (RetrofitErrorResponseBody) e.getBodyAs(RetrofitErrorResponseBody.class);
+    Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
     this.rawMessage =
-        Optional.ofNullable(body).map(RetrofitErrorResponseBody::getMessage).orElse(e.getMessage());
+        body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
   }
 
   public SpinnakerHttpException(RetrofitException e) {
     super(e);
     this.response = null;
     this.retrofit2Response = e.getResponse();
-    RetrofitErrorResponseBody body =
-        (RetrofitErrorResponseBody) e.getErrorBodyAs(RetrofitErrorResponseBody.class);
+    Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
     this.rawMessage =
-        Optional.ofNullable(body).map(RetrofitErrorResponseBody::getMessage).orElse(e.getMessage());
+        body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
   }
 
   private final String getRawMessage() {
@@ -149,21 +144,5 @@ public class SpinnakerHttpException extends SpinnakerServerException {
   @Override
   public SpinnakerHttpException newInstance(String message) {
     return new SpinnakerHttpException(message, this);
-  }
-
-  @Getter
-  // Use JsonIgnoreProperties because some responses contain properties that
-  // cannot be mapped to the RetrofitErrorResponseBody class.  If the default
-  // JacksonConverter (with no extra configurations) is used to deserialize the
-  // response body and properties other than "message" exist in the JSON
-  // response, there will be an UnrecognizedPropertyException.
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  private static final class RetrofitErrorResponseBody {
-    private final String message;
-
-    @JsonCreator
-    RetrofitErrorResponseBody(@JsonProperty("message") String message) {
-      this.message = message;
-    }
   }
 }
