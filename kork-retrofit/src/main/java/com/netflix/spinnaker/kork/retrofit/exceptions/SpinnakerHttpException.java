@@ -62,7 +62,8 @@ public class SpinnakerHttpException extends SpinnakerServerException {
   }
 
   public <T> SpinnakerHttpException(retrofit2.Response<T> syncResp, Retrofit retrofit) {
-    super(new Throwable(syncResp.code() + " " + syncResp.message()));
+    super( syncResp.code() + " " + syncResp.message(),
+        new Throwable(syncResp.code() + " " + syncResp.message()));
     this.retrofit2Response = syncResp;
     this.response = null;
     this.retrofit = retrofit;
