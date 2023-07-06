@@ -21,6 +21,7 @@ import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
 import retrofit2.Retrofit;
@@ -77,6 +78,10 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.rawMessage =
       body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
     */
+    if ((retrofit2Response.code() == HttpStatus.NOT_FOUND.value())
+        || (retrofit2Response.code() == HttpStatus.BAD_REQUEST.value())) {
+      setRetryable(false);
+    }
   }
 
   private final String getRawMessage() {
