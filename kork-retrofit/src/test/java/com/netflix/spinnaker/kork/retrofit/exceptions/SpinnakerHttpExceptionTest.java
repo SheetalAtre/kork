@@ -41,8 +41,8 @@ public class SpinnakerHttpExceptionTest {
             .baseUrl("http://localhost")
             .addConverterFactory(JacksonConverterFactory.create())
             .build();
-    RetrofitException retrofitException = RetrofitException.httpError(response, retrofit2Service);
-    SpinnakerHttpException notFoundException = new SpinnakerHttpException(retrofitException);
+    SpinnakerHttpException notFoundException =
+        new SpinnakerHttpException(response, retrofit2Service);
     assertEquals(HttpStatus.NOT_FOUND.value(), notFoundException.getResponseCode());
 
     // A custom message can be returned instead of the default "Response.error()" message.

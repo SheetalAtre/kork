@@ -61,16 +61,6 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit = null;
   }
 
-  public SpinnakerHttpException(RetrofitException e) {
-    super(e);
-    this.response = null;
-    this.retrofit2Response = e.getResponse();
-    Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
-    this.rawMessage =
-        body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
-    this.retrofit = null;
-  }
-
   public <T> SpinnakerHttpException(retrofit2.Response<T> syncResp, Retrofit retrofit) {
     super(new Throwable(syncResp.code() + " " + syncResp.message()));
     this.retrofit2Response = syncResp;
