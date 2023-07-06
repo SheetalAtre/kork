@@ -23,6 +23,7 @@ import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
+import retrofit2.Retrofit;
 
 /**
  * An exception that exposes the {@link Response} of a given HTTP {@link RetrofitError} or {@link
@@ -37,6 +38,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   private final retrofit2.Response retrofit2Response;
 
+  private final Retrofit retrofit;
   /**
    * A message derived from a RetrofitError's response body, or null if a custom message has been
    * provided.
@@ -50,6 +52,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
     this.rawMessage =
         body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
+    this.retrofit = null;
   }
 
   public SpinnakerHttpException(RetrofitException e) {
@@ -59,6 +62,21 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
     this.rawMessage =
         body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
+    this.retrofit = null;
+  }
+
+  public <T> SpinnakerHttpException(retrofit2.Response<T> syncResp, Retrofit retrofit) {
+    super(new Throwable(syncResp.code() + " " + syncResp.message()));
+    this.retrofit2Response = syncResp;
+    this.response = null;
+    this.rawMessage = this.getMessage();
+    this.retrofit = retrofit;
+    /*
+    TODO:
+    Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
+    this.rawMessage =
+      body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
+    */
   }
 
   private final String getRawMessage() {
@@ -90,6 +108,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.response = cause.response;
     this.retrofit2Response = cause.retrofit2Response;
     rawMessage = null;
+    this.retrofit = cause.retrofit;
   }
 
   public int getResponseCode() {

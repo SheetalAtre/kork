@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.kork.retrofit;
 
-import com.netflix.spinnaker.kork.retrofit.exceptions.RetrofitException;
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException;
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerNetworkException;
 import com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerServerException;
@@ -162,8 +161,7 @@ public class ErrorHandlingExecutorCallAdapterFactory extends CallAdapter.Factory
 
     @Nonnull
     private SpinnakerHttpException createSpinnakerHttpException(Response<T> response) {
-      SpinnakerHttpException retval =
-          new SpinnakerHttpException(RetrofitException.httpError(response, retrofit));
+      SpinnakerHttpException retval = new SpinnakerHttpException(response, retrofit);
       if ((response.code() == HttpStatus.NOT_FOUND.value())
           || (response.code() == HttpStatus.BAD_REQUEST.value())) {
         retval.setRetryable(false);
