@@ -18,12 +18,17 @@ package com.netflix.spinnaker.kork.retrofit.exceptions;
 
 import com.google.common.base.Preconditions;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
+import okhttp3.MediaType;
+import okhttp3.ResponseBody;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
+import retrofit2.Converter;
 import retrofit2.Retrofit;
 
 /**
@@ -70,14 +75,10 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     super(new Throwable(syncResp.code() + " " + syncResp.message()));
     this.retrofit2Response = syncResp;
     this.response = null;
-    this.rawMessage = this.getMessage();
     this.retrofit = retrofit;
-    /*
-    TODO:
-    Map<String, Object> body = (Map<String, Object>) e.getBodyAs(HashMap.class);
+    Map<String, Object> body = (Map<String, Object>) getBodyAs(HashMap.class);
     this.rawMessage =
-      body != null ? (String) body.getOrDefault("message", e.getMessage()) : e.getMessage();
-    */
+        body != null ? (String) body.getOrDefault("message", getMessage()) : getMessage();
     if ((retrofit2Response.code() == HttpStatus.NOT_FOUND.value())
         || (retrofit2Response.code() == HttpStatus.BAD_REQUEST.value())) {
       setRetryable(false);
@@ -168,5 +169,31 @@ public class SpinnakerHttpException extends SpinnakerServerException {
   @Override
   public SpinnakerHttpException newInstance(String message) {
     return new SpinnakerHttpException(message, this);
+  }
+
+  public <T> T getBodyAs(Class<T> type) {
+    if (retrofit2Response == null) {
+      return null;
+    }
+
+    Converter<ResponseBody, T> converter = retrofit.responseBodyConverter(type, new Annotation[0]);
+    try {
+      return converter.convert(retrofit2Response.errorBody());
+    } catch (IOException e) {
+      String jsonErrorMessage =
+          "{\"message\":\"" + retrofit2Response.code() + " " + "Failed to parse response\"}";
+      ResponseBody responseBody = getResponseBody(jsonErrorMessage);
+      try {
+        return converter.convert(responseBody);
+      } catch (IOException ex) {
+        // control is never expected to come to this block.
+        throw new RuntimeException(ex);
+      }
+    }
+  }
+
+  private ResponseBody getResponseBody(String jsonErrorMessage) {
+    return ResponseBody.create(
+        MediaType.parse("application/json" + "; charset=utf-8"), jsonErrorMessage);
   }
 }
