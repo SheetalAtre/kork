@@ -140,6 +140,26 @@ public class SpinnakerRetrofit2ErrorHandleTest {
   }
 
   @Test
+  public void testEnqueueSyncErrorResponse() {
+    final String validJsonResponseBodyString = "{\"name\":\"test\"}";
+    mockWebServer.enqueue(
+        new MockResponse()
+            .setResponseCode(HttpStatus.NOT_FOUND.value())
+            .setBody(validJsonResponseBodyString));
+    SpinnakerHttpException exception =
+        assertThrows(
+            SpinnakerHttpException.class,
+            () -> retrofit2Service.testSyncApiServiceForJsonResponse().execute());
+    String expectedMessage =
+        String.format(
+            "Status: %s, URL: %s, Message: %s",
+            HttpStatus.NOT_FOUND.value(),
+            mockWebServer.url("/").toString() + "retrofit2/jsonresponse",
+            HttpStatus.NOT_FOUND.value() + " " + "Client Error");
+    assertEquals(expectedMessage, exception.getMessage());
+  }
+
+  @Test
   public void testNotParameterizedException() {
 
     IllegalArgumentException illegalArgumentException =
@@ -174,6 +194,9 @@ public class SpinnakerRetrofit2ErrorHandleTest {
 
     @retrofit2.http.GET("/retrofit2/wrongReturnType")
     DummyWithExecute testWrongReturnType();
+
+    @retrofit2.http.GET("/retrofit2/jsonresponse")
+    Call<String> testSyncApiServiceForJsonResponse();
   }
 
   interface DummyWithExecute {

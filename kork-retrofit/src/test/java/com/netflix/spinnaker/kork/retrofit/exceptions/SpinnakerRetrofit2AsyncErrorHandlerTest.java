@@ -90,27 +90,32 @@ public class SpinnakerRetrofit2AsyncErrorHandlerTest {
   }
 
   @Test
-  public void testEnqueueAsyncErrorResponse() throws ExecutionException, InterruptedException {
+  public void testEnqueueAsyncErrorResponse() {
     final String validJsonResponseBodyString = "{\"name\":\"test\"}";
 
     AsyncRetrofit2Service testApi = asyncRetrofit2Service.create(AsyncRetrofit2Service.class);
 
     mockWebServer.enqueue(
-        new MockResponse().setResponseCode(500).setBody(validJsonResponseBodyString));
+        new MockResponse()
+            .setResponseCode(HttpStatus.NOT_FOUND.value())
+            .setBody(validJsonResponseBodyString));
 
     CompletableFuture<Response<Map<String, Object>>> futureResponse =
         enqueueAsync(testApi.testAsyncApiServiceForJsonResponse());
 
-    /*
-    TODO: handle ExecutionException > Spinnaker*Exception
-    System.out.println(executionException.getMessage());
-
-    //prints :
-    //com.netflix.spinnaker.kork.retrofit.exceptions.SpinnakerHttpException:
-    //Status: 500, URL: http://localhost:52871/retrofit2/jsonresponse, Message: 500 Server Error
-     */
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> futureResponse.get());
+    assertTrue(executionException.getCause() instanceof SpinnakerHttpException);
+
+    SpinnakerHttpException exception = (SpinnakerHttpException) executionException.getCause();
+
+    String expectedMessage =
+        String.format(
+            "Status: %s, URL: %s, Message: %s",
+            HttpStatus.NOT_FOUND.value(),
+            mockWebServer.url("/").toString() + "retrofit2/jsonresponse",
+            HttpStatus.NOT_FOUND.value() + " " + "Client Error");
+    assertEquals(expectedMessage, exception.getMessage());
   }
 
   private <T> CompletableFuture<Response<T>> enqueueAsync(Call<T> call) {
