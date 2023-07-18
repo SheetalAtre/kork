@@ -18,11 +18,16 @@ package com.netflix.spinnaker.kork.retrofit.exceptions;
 
 import com.google.common.base.Preconditions;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
+import java.io.IOException;
+import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
+import okhttp3.ResponseBody;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
+import retrofit2.Converter;
 
 /**
  * An exception that exposes the {@link Response} of a given HTTP {@link RetrofitError} or {@link
@@ -44,6 +49,10 @@ public class SpinnakerHttpException extends SpinnakerServerException {
   private final String rawMessage;
 
   private final Map<String, Object> responseBody;
+  private retrofit2.Retrofit retrofit;
+
+  private static Map<String, Object> jsonErrorResponseBody =
+      Map.of("message", "failed to parse response");
 
   public SpinnakerHttpException(RetrofitError e) {
     super(e);
@@ -51,17 +60,6 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit2Response = null;
     responseBody = (Map<String, Object>) e.getBodyAs(HashMap.class);
 
-    this.rawMessage =
-        responseBody != null
-            ? (String) responseBody.getOrDefault("message", e.getMessage())
-            : e.getMessage();
-  }
-
-  public SpinnakerHttpException(RetrofitException e) {
-    super(e);
-    this.response = null;
-    this.retrofit2Response = e.getResponse();
-    responseBody = (Map<String, Object>) e.getErrorBodyAs(HashMap.class);
     this.rawMessage =
         responseBody != null
             ? (String) responseBody.getOrDefault("message", e.getMessage())
@@ -98,6 +96,28 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit2Response = cause.retrofit2Response;
     rawMessage = null;
     this.responseBody = cause.responseBody;
+  }
+
+  /**
+   * The constructor handles the HTTP retrofit2 exception, similar to retrofit logic. It is used
+   * with {@link com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory}.
+   */
+  public <T> SpinnakerHttpException(retrofit2.Response<T> syncResp, retrofit2.Retrofit retrofit) {
+    super(
+        syncResp.code() + " " + syncResp.message(),
+        new Throwable(syncResp.code() + " " + syncResp.message()));
+    this.retrofit2Response = syncResp;
+    this.response = null;
+    this.retrofit = retrofit;
+    responseBody = this.getErrorBodyAs();
+    this.rawMessage =
+        responseBody != null
+            ? (String) responseBody.getOrDefault("message", getMessage())
+            : getMessage();
+    if ((retrofit2Response.code() == HttpStatus.NOT_FOUND.value())
+        || (retrofit2Response.code() == HttpStatus.BAD_REQUEST.value())) {
+      setRetryable(false);
+    }
   }
 
   public int getResponseCode() {
@@ -156,5 +176,19 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   public Map<String, Object> getResponseBody() {
     return this.responseBody;
+  }
+
+  private Map<String, Object> getErrorBodyAs() {
+    if (retrofit2Response == null) {
+      return null;
+    }
+
+    Converter<ResponseBody, Map> converter =
+        retrofit.responseBodyConverter(Map.class, new Annotation[0]);
+    try {
+      return converter.convert(retrofit2Response.errorBody());
+    } catch (IOException e) {
+      return jsonErrorResponseBody;
+    }
   }
 }
