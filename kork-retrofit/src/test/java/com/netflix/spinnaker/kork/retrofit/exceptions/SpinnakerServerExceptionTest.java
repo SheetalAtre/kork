@@ -112,7 +112,7 @@ public class SpinnakerServerExceptionTest {
             "Status: %s, URL: %s, Message: %s",
             HttpStatus.NOT_FOUND.value(),
             "http://localhost/",
-            HttpStatus.NOT_FOUND.value() + " " + "Response.error()");
+            "java.lang.Throwable:" + " " + HttpStatus.NOT_FOUND.value() + " " + "Response.error()");
     assertEquals(expectedMessage, notFoundException.getMessage());
   }
 }
