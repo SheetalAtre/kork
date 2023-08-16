@@ -51,6 +51,8 @@ public class SpinnakerHttpException extends SpinnakerServerException {
   private final Map<String, Object> responseBody;
   private final retrofit2.Retrofit retrofit;
 
+  private final String defaultMessage = "Response.error()";
+
   public SpinnakerHttpException(RetrofitError e) {
     super(e);
     this.response = e.getResponse();
@@ -149,7 +151,9 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     // always returns something whether there's a specified message or not, so
     // look at getRawMessage instead.
     if (getRawMessage() == null) {
-      return super.getMessage();
+      if (super.getMessage() != null) {
+        return super.getMessage();
+      }
     }
 
     if (retrofit2Response != null) {
@@ -157,11 +161,13 @@ public class SpinnakerHttpException extends SpinnakerServerException {
           "Status: %s, URL: %s, Message: %s",
           retrofit2Response.code(),
           retrofit2Response.raw().request().url().toString(),
-          getRawMessage());
+          (super.getMessage() != null ? getRawMessage() : defaultMessage));
     } else {
       return String.format(
           "Status: %s, URL: %s, Message: %s",
-          response.getStatus(), response.getUrl(), getRawMessage());
+          response.getStatus(),
+          response.getUrl(),
+          (super.getMessage() != null ? getRawMessage() : defaultMessage));
     }
   }
 
