@@ -31,9 +31,9 @@ import retrofit2.Converter;
 
 /**
  * An exception that exposes the {@link Response} of a given HTTP {@link RetrofitError} or {@link
- * okhttp3.Response} of a {@link RetrofitException} if retrofit 2.x used and a detail message that
- * extracts useful information from the {@link Response} or {@link okhttp3.Response}. Both {@link
- * Response} and {@link okhttp3.Response} can't be set together..
+ * okhttp3.Response} if retrofit 2.x used and a detail message that extracts useful information from
+ * the {@link Response} or {@link okhttp3.Response}. Both {@link Response} and {@link
+ * okhttp3.Response} can't be set together..
  */
 @NonnullByDefault
 public class SpinnakerHttpException extends SpinnakerServerException {
@@ -49,17 +49,14 @@ public class SpinnakerHttpException extends SpinnakerServerException {
   private final String rawMessage;
 
   private final Map<String, Object> responseBody;
-  private retrofit2.Retrofit retrofit;
-
-  private static Map<String, Object> jsonErrorResponseBody =
-      Map.of("message", "failed to parse response");
+  private final retrofit2.Retrofit retrofit;
 
   public SpinnakerHttpException(RetrofitError e) {
     super(e);
     this.response = e.getResponse();
     this.retrofit2Response = null;
+    this.retrofit = null;
     responseBody = (Map<String, Object>) e.getBodyAs(HashMap.class);
-
     this.rawMessage =
         responseBody != null
             ? (String) responseBody.getOrDefault("message", e.getMessage())
@@ -96,28 +93,28 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit2Response = cause.retrofit2Response;
     rawMessage = null;
     this.responseBody = cause.responseBody;
+    this.retrofit = null;
   }
 
   /**
    * The constructor handles the HTTP retrofit2 exception, similar to retrofit logic. It is used
    * with {@link com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory}.
    */
-  public <T> SpinnakerHttpException(retrofit2.Response<T> syncResp, retrofit2.Retrofit retrofit) {
-    super(
-        syncResp.code() + " " + syncResp.message(),
-        new Throwable(syncResp.code() + " " + syncResp.message()));
-    this.retrofit2Response = syncResp;
+  public <T> SpinnakerHttpException(
+      retrofit2.Response<T> retrofit2Response, retrofit2.Retrofit retrofit) {
+    super(new Throwable(retrofit2Response.code() + " " + retrofit2Response.message()));
+    this.retrofit2Response = retrofit2Response;
     this.response = null;
     this.retrofit = retrofit;
-    responseBody = this.getErrorBodyAs();
-    this.rawMessage =
-        responseBody != null
-            ? (String) responseBody.getOrDefault("message", getMessage())
-            : getMessage();
     if ((retrofit2Response.code() == HttpStatus.NOT_FOUND.value())
         || (retrofit2Response.code() == HttpStatus.BAD_REQUEST.value())) {
       setRetryable(false);
     }
+    responseBody = (Map<String, Object>) this.getErrorBodyAs(HashMap.class);
+    this.rawMessage =
+        responseBody != null
+            ? (String) responseBody.getOrDefault("message", getMessage())
+            : getMessage();
   }
 
   public int getResponseCode() {
@@ -178,17 +175,16 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     return this.responseBody;
   }
 
-  private Map<String, Object> getErrorBodyAs() {
+  public <T> T getErrorBodyAs(Class<T> type) {
     if (retrofit2Response == null) {
       return null;
     }
 
-    Converter<ResponseBody, Map> converter =
-        retrofit.responseBodyConverter(Map.class, new Annotation[0]);
+    Converter<ResponseBody, T> converter = retrofit.responseBodyConverter(type, new Annotation[0]);
     try {
       return converter.convert(retrofit2Response.errorBody());
     } catch (IOException e) {
-      return jsonErrorResponseBody;
+      throw new RuntimeException(e);
     }
   }
 }
