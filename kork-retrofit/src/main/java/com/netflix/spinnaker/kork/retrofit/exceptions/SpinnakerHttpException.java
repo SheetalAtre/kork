@@ -103,9 +103,6 @@ public class SpinnakerHttpException extends SpinnakerServerException {
    * with {@link com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory}.
    */
   public <T> SpinnakerHttpException(retrofit2.Response<T> syncResp, retrofit2.Retrofit retrofit) {
-    super(
-        syncResp.code() + " " + syncResp.message(),
-        new Throwable(syncResp.code() + " " + syncResp.message()));
     this.retrofit2Response = syncResp;
     this.response = null;
     this.retrofit = retrofit;
@@ -153,7 +150,9 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     // always returns something whether there's a specified message or not, so
     // look at getRawMessage instead.
     if (getRawMessage() == null) {
-      return super.getMessage();
+      if (super.getMessage() != null) {
+        return super.getMessage();
+      }
     }
 
     if (retrofit2Response != null) {
