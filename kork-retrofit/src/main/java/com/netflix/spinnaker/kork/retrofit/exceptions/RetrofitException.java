@@ -33,6 +33,8 @@ import retrofit2.Retrofit;
  * com.netflix.spinnaker.kork.retrofit.ErrorHandlingExecutorCallAdapterFactory}.
  */
 public class RetrofitException extends RuntimeException {
+  private static final Map<String, Object> jsonErrorResponseBody =
+      Map.of("message", "failed to parse response");
 
   public static RetrofitException httpError(Response response, Retrofit retrofit) {
     String message = response.code() + " " + response.message();
@@ -80,7 +82,7 @@ public class RetrofitException extends RuntimeException {
     try {
       return converter.convert(response.errorBody());
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      return jsonErrorResponseBody;
     }
   }
 }
