@@ -53,6 +53,8 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   private final int responseCode;
 
+  private final String url;
+
   private static final Map<String, Object> jsonErrorResponseBody =
       Map.of("message", "failed to parse response");
 
@@ -63,6 +65,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit = null;
     responseBody = (Map<String, Object>) e.getBodyAs(HashMap.class);
     this.responseCode = response.getStatus();
+    this.url = response.getUrl();
     this.rawMessage =
         responseBody != null
             ? (String) responseBody.getOrDefault("message", e.getMessage())
@@ -84,6 +87,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     }
     responseBody = this.getErrorBodyAs();
     this.responseCode = retrofit2Response.code();
+    this.url = retrofit2Response.raw().request().url().toString();
     this.rawMessage =
         responseBody != null
             ? (String) responseBody.getOrDefault("message", retrofit2Response.message())
@@ -121,11 +125,16 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit = null;
     rawMessage = null;
     this.responseCode = cause.responseCode;
+    this.url = cause.url;
     this.responseBody = cause.responseBody;
   }
 
   public int getResponseCode() {
     return this.responseCode;
+  }
+
+  public String getUrl() {
+    return url;
   }
 
   public HttpHeaders getHeaders() {
@@ -158,12 +167,10 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
     if (retrofit2Response != null) {
       return String.format(
-          "Status: %s, URL: %s, Message: %s",
-          this.responseCode, retrofit2Response.raw().request().url().toString(), getRawMessage());
+          "Status: %s, URL: %s, Message: %s", this.responseCode, this.url, getRawMessage());
     } else {
       return String.format(
-          "Status: %s, URL: %s, Message: %s",
-          this.responseCode, response.getUrl(), getRawMessage());
+          "Status: %s, URL: %s, Message: %s", this.responseCode, this.url, getRawMessage());
     }
   }
 

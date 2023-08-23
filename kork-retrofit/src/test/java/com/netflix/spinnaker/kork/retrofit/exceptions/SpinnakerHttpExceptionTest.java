@@ -64,6 +64,7 @@ public class SpinnakerHttpExceptionTest {
 
   @Test
   public void testSpinnakerHttpExceptionFromRetrofitException() {
+    final String url = "http://localhost/";
     final String validJsonResponseBodyString = "{\"name\":\"test\"}";
     ResponseBody responseBody =
         ResponseBody.create(
@@ -73,7 +74,7 @@ public class SpinnakerHttpExceptionTest {
 
     Retrofit retrofit2Service =
         new Retrofit.Builder()
-            .baseUrl("http://localhost")
+            .baseUrl(url)
             .addConverterFactory(JacksonConverterFactory.create())
             .build();
     SpinnakerHttpException notFoundException =
@@ -82,15 +83,17 @@ public class SpinnakerHttpExceptionTest {
     Map<String, Object> errorResponseBody = notFoundException.getResponseBody();
     assertEquals(errorResponseBody.get("name"), "test");
     assertEquals(HttpStatus.NOT_FOUND.value(), notFoundException.getResponseCode());
+    assertEquals(url, retrofit2Service.baseUrl().toString());
     assertTrue(
         notFoundException.getMessage().contains(String.valueOf(HttpStatus.NOT_FOUND.value())));
   }
 
   @Test
   public void testSpinnakerHttpException_NewInstance() {
-    Response response = new Response("http://localhost", 200, "reason", List.of(), null);
+    final String url = "http://localhost";
+    Response response = new Response(url, 200, "reason", List.of(), null);
     try {
-      RetrofitError error = RetrofitError.httpError("http://localhost", response, null, null);
+      RetrofitError error = RetrofitError.httpError(url, response, null, null);
       throw new SpinnakerHttpException(error);
     } catch (SpinnakerException e) {
       SpinnakerException newException = e.newInstance(CUSTOM_MESSAGE);
@@ -99,6 +102,7 @@ public class SpinnakerHttpExceptionTest {
       assertEquals(CUSTOM_MESSAGE, newException.getMessage());
       assertEquals(e, newException.getCause());
       assertEquals(response.getStatus(), ((SpinnakerHttpException) newException).getResponseCode());
+      assertEquals(response.getUrl(), ((SpinnakerHttpException) newException).getUrl());
     }
   }
 }
