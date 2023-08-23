@@ -55,6 +55,8 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   private final String url;
 
+  private final String reason;
+
   private static final Map<String, Object> jsonErrorResponseBody =
       Map.of("message", "failed to parse response");
 
@@ -65,6 +67,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit = null;
     responseBody = (Map<String, Object>) e.getBodyAs(HashMap.class);
     this.responseCode = response.getStatus();
+    this.reason = response.getReason();
     this.url = response.getUrl();
     this.rawMessage =
         responseBody != null
@@ -87,6 +90,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     }
     responseBody = this.getErrorBodyAs();
     this.responseCode = retrofit2Response.code();
+    this.reason = retrofit2Response.message();
     this.url = retrofit2Response.raw().request().url().toString();
     this.rawMessage =
         responseBody != null
@@ -125,6 +129,7 @@ public class SpinnakerHttpException extends SpinnakerServerException {
     this.retrofit = null;
     rawMessage = null;
     this.responseCode = cause.responseCode;
+    this.reason = cause.reason;
     this.url = cause.url;
     this.responseBody = cause.responseBody;
   }
@@ -135,6 +140,10 @@ public class SpinnakerHttpException extends SpinnakerServerException {
 
   public String getUrl() {
     return url;
+  }
+
+  public String getReason() {
+    return reason;
   }
 
   public HttpHeaders getHeaders() {

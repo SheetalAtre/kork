@@ -42,13 +42,14 @@ public class SpinnakerHttpExceptionTest {
 
   public void testSpinnakerHttpExceptionFromRetrofitError() {
     String url = "http://localhost";
+    String reason = "reason";
     int statusCode = 200;
     String message = "arbitrary message";
     Response response =
         new Response(
             url,
             statusCode,
-            "reason",
+            reason,
             List.of(),
             new TypedString("{ message: \"" + message + "\", name: \"test\" }"));
     RetrofitError retrofitError =
@@ -58,6 +59,7 @@ public class SpinnakerHttpExceptionTest {
     Map<String, Object> errorResponseBody = spinnakerHttpException.getResponseBody();
     assertThat(errorResponseBody.get("name")).isEqualTo("test");
     assertThat(spinnakerHttpException.getResponseCode()).isEqualTo(statusCode);
+    assertThat(spinnakerHttpException.getReason()).isEqualTo(reason);
     assertThat(spinnakerHttpException.getMessage())
         .isEqualTo("Status: " + statusCode + ", URL: " + url + ", Message: " + message);
   }
@@ -84,6 +86,8 @@ public class SpinnakerHttpExceptionTest {
     assertEquals(errorResponseBody.get("name"), "test");
     assertEquals(HttpStatus.NOT_FOUND.value(), notFoundException.getResponseCode());
     assertEquals(url, retrofit2Service.baseUrl().toString());
+    assertEquals("Response.error()", notFoundException.getReason()); // set by Response.error
+
     assertTrue(
         notFoundException.getMessage().contains(String.valueOf(HttpStatus.NOT_FOUND.value())));
   }
@@ -91,7 +95,8 @@ public class SpinnakerHttpExceptionTest {
   @Test
   public void testSpinnakerHttpException_NewInstance() {
     final String url = "http://localhost";
-    Response response = new Response(url, 200, "reason", List.of(), null);
+    final String reason = "reason";
+    Response response = new Response(url, 200, reason, List.of(), null);
     try {
       RetrofitError error = RetrofitError.httpError(url, response, null, null);
       throw new SpinnakerHttpException(error);
@@ -101,8 +106,10 @@ public class SpinnakerHttpExceptionTest {
       assertTrue(newException instanceof SpinnakerHttpException);
       assertEquals(CUSTOM_MESSAGE, newException.getMessage());
       assertEquals(e, newException.getCause());
-      assertEquals(response.getStatus(), ((SpinnakerHttpException) newException).getResponseCode());
-      assertEquals(response.getUrl(), ((SpinnakerHttpException) newException).getUrl());
+      assertEquals(
+          HttpStatus.OK.value(), ((SpinnakerHttpException) newException).getResponseCode());
+      assertEquals(url, ((SpinnakerHttpException) newException).getUrl());
+      assertEquals(reason, ((SpinnakerHttpException) newException).getReason());
     }
   }
 }
