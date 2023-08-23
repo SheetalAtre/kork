@@ -165,13 +165,8 @@ public class SpinnakerHttpException extends SpinnakerServerException {
       return super.getMessage();
     }
 
-    if (retrofit2Response != null) {
-      return String.format(
-          "Status: %s, URL: %s, Message: %s", this.responseCode, this.url, getRawMessage());
-    } else {
-      return String.format(
-          "Status: %s, URL: %s, Message: %s", this.responseCode, this.url, getRawMessage());
-    }
+    return String.format(
+        "Status: %s, URL: %s, Message: %s", this.responseCode, this.url, getRawMessage());
   }
 
   @Override
