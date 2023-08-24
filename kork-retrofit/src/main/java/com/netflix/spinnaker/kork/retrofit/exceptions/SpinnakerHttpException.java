@@ -16,7 +16,9 @@
 
 package com.netflix.spinnaker.kork.retrofit.exceptions;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Preconditions;
+import com.google.gson.Gson;
 import com.netflix.spinnaker.kork.annotations.NonnullByDefault;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -27,6 +29,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
+import retrofit.converter.GsonConverter;
 import retrofit2.Converter;
 
 /**
@@ -180,6 +183,81 @@ public class SpinnakerHttpException extends SpinnakerServerException {
       return converter.convert(retrofit2Response.errorBody());
     } catch (IOException e) {
       return jsonErrorResponseBody;
+    }
+  }
+
+  static class Retrofit2ByteArrayToHashMapConverter extends Converter.Factory {
+    @Override
+    public Converter<ResponseBody, ?> responseBodyConverter(
+        java.lang.reflect.Type type, Annotation[] annotations, retrofit2.Retrofit retrofit) {
+      if (type == byte[].class) {
+        return new Converter<okhttp3.ResponseBody, Map<String, Object>>() {
+          @Override
+          public Map<String, Object> convert(okhttp3.ResponseBody value) throws IOException {
+            // return value.bytes();
+            byte src[] = value.bytes();
+            com.fasterxml.jackson.databind.ObjectMapper om =
+                new com.fasterxml.jackson.databind.ObjectMapper();
+            TypeReference<Map<String, Object>> tr = new TypeReference<Map<String, Object>>() {};
+            Map<String, Object> val = om.readValue(src, tr);
+            return val;
+          }
+        };
+      }
+      return null;
+    }
+  }
+
+  static class RetrofitByteArrayToHashMapConverter implements retrofit.converter.Converter {
+    private static final java.nio.charset.Charset UTF_8 = java.nio.charset.Charset.forName("UTF-8");
+    private final retrofit.converter.Converter gsonConverter;
+
+    public RetrofitByteArrayToHashMapConverter() {
+      this.gsonConverter = new GsonConverter(new Gson());
+    }
+
+    @Override
+    public Object fromBody(retrofit.mime.TypedInput body, java.lang.reflect.Type type)
+        throws retrofit.converter.ConversionException {
+      try {
+        String contentType = body.mimeType();
+
+        if (contentType != null) {
+          if (contentType.contains("json")) {
+            return gsonConverter.fromBody(body, type);
+          } else if (contentType.contains("octet-stream")) {
+            byte[] bytes = StreamUtils.readBytes(body.in());
+            String json = new String(bytes, UTF_8);
+            java.lang.reflect.Type mapType =
+                new com.google.gson.reflect.TypeToken<HashMap<String, Object>>() {}.getType();
+            return new com.google.gson.Gson().fromJson(json, mapType);
+          }
+        }
+        throw new retrofit.converter.ConversionException(
+            "Unsupported content type: " + contentType);
+
+      } catch (IOException e) {
+        throw new retrofit.converter.ConversionException(e);
+      }
+    }
+
+    @Override
+    public retrofit.mime.TypedOutput toBody(Object object) {
+      /* TODO */
+      return null;
+    }
+
+    private static class StreamUtils {
+      public static byte[] readBytes(java.io.InputStream inputStream) throws IOException {
+        int bufferSize = 1024;
+        byte[] buffer = new byte[bufferSize];
+        int bytesRead;
+        java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+          output.write(buffer, 0, bytesRead);
+        }
+        return output.toByteArray();
+      }
     }
   }
 }

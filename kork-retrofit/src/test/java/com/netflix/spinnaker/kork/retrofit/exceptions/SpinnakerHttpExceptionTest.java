@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import okhttp3.MediaType;
@@ -114,5 +115,102 @@ public class SpinnakerHttpExceptionTest {
       assertEquals(url, spinnakerHttpException.getUrl());
       assertNull(spinnakerHttpException.getReason());
     }
+  }
+
+  @Test
+  public void testByteArrayBodyContentRetrofit2() throws Exception {
+
+    // byte[] byteArray = {0x12, 0x34, 0x56, 0x78};
+    String message = "arbitrary message";
+
+    String msg = "{ \"message\": \"" + message + "\", \"name\": \"test\" }";
+    byte[] byteArray = msg.getBytes();
+    final String url = "http://localhost/";
+
+    ResponseBody responseBody =
+        ResponseBody.create(MediaType.parse("application/octet-stream"), byteArray);
+
+    retrofit2.Response response =
+        retrofit2.Response.error(HttpStatus.UNAUTHORIZED.value(), responseBody);
+
+    Retrofit retrofit2Service =
+        new Retrofit.Builder()
+            .baseUrl(url)
+            .addConverterFactory(JacksonConverterFactory.create())
+            .addConverterFactory(new SpinnakerHttpException.Retrofit2ByteArrayToHashMapConverter())
+            .build();
+
+    SpinnakerHttpException spinnakerHttpException =
+        new SpinnakerHttpException(response, retrofit2Service);
+
+    assertNotNull(spinnakerHttpException.getResponseBody());
+    // hashmap for json body
+    // Without the ByteArrayConverterFactoryTestUtil, and with only GsonConverterFactory,
+    // the getBodyAs() will give a com.fasterxml.jackson.core.JsonParseException
+    Map<String, Object> errorResponseBody = spinnakerHttpException.getResponseBody();
+
+    assertNull(spinnakerHttpException.getCause());
+    assertEquals("Response.error()", spinnakerHttpException.getReason()); // set by Response.error
+    assertEquals(
+        spinnakerHttpException.getMessage(),
+        "Status: 401, URL: http://localhost/, Message: Response.error()");
+    assertNotNull(errorResponseBody);
+
+    assertEquals(errorResponseBody.get("name"), "test");
+    assertEquals(HttpStatus.UNAUTHORIZED.value(), spinnakerHttpException.getResponseCode());
+    assertEquals(url, retrofit2Service.baseUrl().toString());
+    assertEquals("Response.error()", spinnakerHttpException.getReason()); // set by Response.error
+
+    assertTrue(
+        spinnakerHttpException
+            .getMessage()
+            .contains(String.valueOf(HttpStatus.UNAUTHORIZED.value())));
+  }
+
+  @Test
+  public void testByteArrayBodyContentRetrofit() {
+    String url = "http://localhost";
+    String reason = "reason";
+    int statusCode = 200;
+    String message = "arbitrary message";
+    // byte[] byteArray = {0x12, 0x34, 0x56, 0x78};
+    String msg = "{ \"message\": \"" + message + "\", \"name\": \"test\" }";
+    byte[] byteArray = msg.getBytes();
+
+    retrofit.mime.TypedByteArray typedByteArray =
+        new retrofit.mime.TypedByteArray("application/octet-stream", byteArray);
+
+    Response response =
+        new Response(
+            url,
+            statusCode,
+            reason,
+            List.of(new retrofit.client.Header("Content-Type", "application/octet-stream")),
+            typedByteArray);
+    retrofit.converter.Converter converter =
+        new SpinnakerHttpException.RetrofitByteArrayToHashMapConverter();
+
+    RetrofitError retrofitError =
+        RetrofitError.httpError(url, response, converter, java.util.HashMap.class);
+    assertNotNull(retrofitError);
+
+    assertEquals(statusCode, retrofitError.getResponse().getStatus());
+
+    HashMap<String, String> errorResponse =
+        (HashMap<String, String>) retrofitError.getBodyAs(HashMap.class);
+    assertNotNull(errorResponse);
+
+    SpinnakerHttpException spinnakerHttpException = new SpinnakerHttpException(retrofitError);
+    assertThat(spinnakerHttpException.getResponseBody()).isNotNull();
+    Map<String, Object> errorResponseBody = spinnakerHttpException.getResponseBody();
+    assertThat(errorResponseBody.get("name")).isEqualTo("test");
+    assertThat(spinnakerHttpException.getResponseCode()).isEqualTo(statusCode);
+    assertThat(spinnakerHttpException.getReason()).isEqualTo(reason);
+    /*
+    TODO :
+    assertThat(spinnakerHttpException.getMessage())
+      .isEqualTo("Status: " + statusCode + ", URL: " + url + ", Message: " + message);*/
+    assertThat(spinnakerHttpException.getMessage())
+        .isEqualTo("Status: " + statusCode + ", URL: " + url + ", Message: " + reason);
   }
 }
