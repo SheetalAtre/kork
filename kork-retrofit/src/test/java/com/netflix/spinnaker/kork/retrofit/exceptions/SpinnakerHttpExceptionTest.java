@@ -20,6 +20,7 @@ package com.netflix.spinnaker.kork.retrofit.exceptions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.Gson;
@@ -104,12 +105,14 @@ public class SpinnakerHttpExceptionTest {
       SpinnakerException newException = e.newInstance(CUSTOM_MESSAGE);
 
       assertTrue(newException instanceof SpinnakerHttpException);
-      assertEquals(CUSTOM_MESSAGE, newException.getMessage());
+      SpinnakerHttpException spinnakerHttpException = ((SpinnakerHttpException) newException);
+
+      assertEquals(spinnakerHttpException.getMessage(), CUSTOM_MESSAGE);
+
       assertEquals(e, newException.getCause());
-      assertEquals(
-          HttpStatus.OK.value(), ((SpinnakerHttpException) newException).getResponseCode());
-      assertEquals(url, ((SpinnakerHttpException) newException).getUrl());
-      assertEquals(reason, ((SpinnakerHttpException) newException).getReason());
+      assertEquals(HttpStatus.OK.value(), spinnakerHttpException.getResponseCode());
+      assertEquals(url, spinnakerHttpException.getUrl());
+      assertNull(spinnakerHttpException.getReason());
     }
   }
 }
